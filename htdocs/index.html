@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Damage Simulator</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+        <script type="importmap">
+            {
+                "imports": {
+                    "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
+                }
+            }
+        </script>
+        <link rel="stylesheet" href="./style.css" type="text/css">
+    </head>
+    <body>
+        <main>
+            <canvas ref="canvas" id="graph" :width="vp.w" :height="300" v-show="ready && display.graph"></canvas>
+            <!--
+            <div>
+                グラフ横軸 :
+                <label><input type="radio" v-model="hAxisMode" value="cHit">会心率</label>
+                / <label><input type="radio" v-model="hAxisMode" value="cDmg">会心ダメージ</label>
+                / <label><input type="radio" v-model="hAxisMode" value="atk">ATK</label>
+            </div>
+            <div>
+                計算モード : <label><input type="radio" v-model="outputCalcMode" value="normal">一般</label>
+                / <label><input type="radio" v-model="outputCalcMode" value="yixien">イーシェン師匠</label>
+                / <label><input type="radio" v-model="outputCalcMode" value="ben">ベンさん</label>
+            </div>
+            -->
+            <section v-for="data of agentSet" v-show="ready && display.base">
+                <div class="agent-status" :style="'position: sticky; top: ' + (display.graph ? '300px' : '0') + ';'">
+                    <table>
+                        <caption>エージェント : {{data.agent.name.full.jp}} [{{Base.getRoleName(data.agent.role)}}/{{Base.getElementName(data.agent.element)}}]</caption>
+                        <colgroup>
+                            <col class="row-header" span="1" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>&nbsp;</th>
+                                <th v-for="label of data.agent.getStatusList()">{{Base.getLabel(label)}}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr id="agent-final-status">
+                                <th>開幕</th>
+                                <td v-for="val,key in data.calcStartingStatus(true)">
+                                    {{val}}{{Base.getUnit(key, '%')}}
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr id="agent-base-status">
+                                <th>基礎</th>
+                                <td v-for="val, key of data.agent.getAllStatus()">
+                                    {{val}}{{Base.getUnit(key, '%')}}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <section style="overflow-x: scroll; display: flex;">
+                    <fieldset>
+                        <legend>エージェント設定</legend>
+                        <!--
+                        <div>
+                            計算モード : <label><input type="radio" v-model="data.calcMode" value="fwd">積算</label> / <label><input type="radio" v-model="data.calcMode" value="back">逆算</label>
+                        </div>
+                        -->
+                        <dl>
+                            <dt>フィルター</dt>
+                            <dd>
+                                ロール<select v-model="filterState.role">
+                                    <option v-for="val, key in ['強攻', '異常', '撃破', '防護', '支援', '命破']" :value="key">{{val}}</option>
+                                    <option :value="Infinity">All</option>
+                                </select> /
+                                属性<select v-model="filterState.element">
+                                    <option v-for="val, key in ['電気', 'エーテル', '炎', '氷', '物理']" :value="key">{{val}}</option>
+                                    <option :value="Infinity">All</option>
+                                </select> /
+                                レア度<select v-model="filterState.rarity">
+                                    <option v-for="val, key in ['S', 'A']" :value="key">{{val}}</option>
+                                    <option :value="Infinity">All</option>
+                                </select> /
+                                陣営<select v-model="filterState.faction">
+                                    <option v-for="val, key in [1,2,3,4,5,6,7,8,9,10,11,12]" :value="key">{{val}}</option>
+                                    <option :value="Infinity">All</option>
+                                </select>
+                            </dd>
+                            <dt>対象エージェント</dt>
+                            <dd>
+                                <select v-model="data.agent.id">
+                                    <option v-for="{id, name}, key in Agent.getAgentList('full', 'jp', filterState)" :value="id">{{name}}</option>
+                                </select>
+                            </dd>
+                            <dt>コアスキルレベル</dt>
+                            <dd>
+                                <label><input type="radio" v-model="data.agent.coreLvl" :value="0">-</label>
+                                <label v-for="val, key of ['A','B','C','D','E','F']"><input type="radio" v-model="data.agent.coreLvl" :value="key+1">{{val}}</label>
+                                <span class="nowrap">(追加ステータス : <span v-for="val, key in data.agent.coreEffect">{{Base.getLabel(key)}} +{{val}}{{Base.getUnit(key)}} , </span>)</span>
+                                </select>
+                            </dd>
+                            <dt>心象映画レベル</dt>
+                            <dd>
+                                &nbsp;
+                            </dd>
+                        </dl>
+                        <table>
+                            <caption>エージェント基礎ステータス</caption>
+                            <colgroup>
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th v-for="label of data.agent.getStatusList()">{{Base.getLabel(label)}}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr id="agent-base-status">
+                                    <td v-for="val, key of data.agent.getAllStatus()">
+                                        {{val}}{{Base.getUnit(key, '%')}}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </fieldset>
+                    <fieldset>
+                        <legend>装備セット(基礎)</legend>
+                        <label>ATK : <input type="number" v-model="data.wengine.atk"></label>
+                        <label>Adv-st : <select v-model="data.wengine.adv.type">
+                            <option v-for="item of WENGINE_ADVLIST" :value="item">{{Base.getLabel(item)}}</option>
+                        </select>
+                        <input class="digit2" type="number" v-model="data.wengine.adv.value">{{Base.getUnit(data.wengine.adv.type)}}</label>
+                        <dl>
+                            <dt>ドライバコンビネーション</dt>
+                            <dd v-for="i in 3">
+                                <select v-model="data.driver.combination[i-1]">
+                                    <option v-for="val, key of DRIVER_LIST" :value="key">{{val}}</option>
+                                </select> x 2
+                            </dd>
+                            <div v-for="label, key of data.driver.mainStatus.slice(3)">
+                                <dt>スロット{{key+4}} メインステータス</dt>
+                                <dd>
+                                    <label v-for="item of DRIVER_MAINLIST[key+3]">
+                                        <input type="radio" v-model="data.driver.mainStatus[key+3]" :value="item">
+                                        {{Base.getLabel(item)}} +{{DRIVER_MAINSTAT[item]}}{{Base.getUnit(item)}}
+                                    </label>
+                                </dd>
+                            </div>
+                        </dl>
+                    </fieldset>
+                    <table>
+                        <caption>サブステータス設定 / ディスク効果合計</caption>
+                        <colgroup>
+                            <col class="row-header" />
+                            <col class="driver" span="3" />
+                            <col class="total" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>&nbsp;</th>
+                                <th>2Set</th>
+                                <th>Main</th>
+                                <th>Sub ({{}}/{{Driver.getStackLimit()}})</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="val,key in Driver.getStatusList()">
+                                <th scope="col">{{Base.getLabel(val)}}({{Base.getUnit(val)}})</th>
+                                <td v-if="data.driver.getSetEffect(val)">{{data.driver.getSetEffect(val)}}{{Base.getUnit(val, '%')}}</td>
+                                <td v-else>&nbsp;</td>
+                                <td v-if="data.driver.getMainValue(val)">{{data.driver.getMainValue(val)}}{{Base.getUnit(val, '%')}}</td>
+                                <td v-else>&nbsp;</td>
+                                <td v-if="driverData.subStacks[val]">
+                                    <span class="nowrap">{{DRIVER_SUBSTAT[val]}}{{Base.getUnit(val)}} * <input class="digit2" type="number" v-model="driverData.subStacks[val].current" min="0" :max="driverData.subStacks[val].max">
+                                    <button @click="driverData.subStacks[val].current --">-</button><button @click="driverData.subStacks[val].current ++">+</button></span>
+                                    <input type="range" :data-stat="val" v-model="driverData.subStacks[val].current" :min="0" :max="driverData.subStacks[val].max" @change="data.driver.subLimitCheck(val)" :disabled="data.calcMode == 'back'">
+                                </td>
+                                <td v-else>&nbsp;</td>
+                                <td>{{data.driver.getEffectValue(val)}}{{Base.getUnit(val, '%')}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                <section v-for="pattern, pNum of data.pattern" v-show="ready && display.pattern">
+                    <fieldset>
+                        <legend>装備パターン #{{pNum}}</legend>
+                        <label>ATK : <input type="number" v-model="pattern.wengine.atk"></label>
+                        <label>Adv-st : <select v-model="pattern.wengine.adv.type">
+                            <option v-for="item of WENGINE_ADVLIST" :value="item">{{Base.getLabel(item)}}</option>
+                        </select>
+                        <input class="digit2" type="number" v-model="pattern.wengine.adv.value">{{Base.getUnit(pattern.wengine.adv.type)}}</label>
+                        <dl>
+                            <dt>ドライバコンビネーション</dt>
+                            <dd v-for="i in 3">
+                                <select v-model="pattern.driver.combo[i-1]">
+                                    <option v-for="val, key of DRIVER_LIST" :value="key">{{val}}</option>
+                                </select> x 2
+                            </dd>
+                            <div v-for="label, key of pattern.driver.main.slice(3)">
+                                <dt>スロット{{key+4}} メインステータス</dt>
+                                <dd>
+                                    <label v-for="item of DRIVER_MAINLIST[key+3]">
+                                        <input type="radio" v-model="pattern.driver.main[key+3]" :value="item">
+                                        {{Base.getLabel(item)}} +{{DRIVER_MAINSTAT[item]}}{{Base.getUnit(item)}}
+                                    </label>
+                                </dd>
+                            </div>
+                        </dl>
+                        <table>
+                            <caption>サブステータス設定 / ディスク効果合計</caption>
+                            <colgroup>
+                                <col class="row-header" />
+                                <col class="driver" span="3" />
+                                <col class="total" />
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th>&nbsp;</th>
+                                    <th>2Set</th>
+                                    <th>Main</th>
+                                    <th>Sub ({{}}/{{Driver.getStackLimit()}})</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead><!--
+                            <tbody>
+                                <tr v-for="val,key in Driver.getStatusList()">
+                                    <th scope="col">{{Base.getLabel(val)}}({{Base.getUnit(val)}})</th>
+                                    <td v-if="pattern.driver.getSetEffect(val)">{{pattern.driver.getSetEffect(val)}}{{Base.getUnit(val, '%')}}</td>
+                                    <td v-else>&nbsp;</td>
+                                    <td v-if="pattern.driver.getMainValue(val)">{{pattern.driver.getMainValue(val)}}{{Base.getUnit(val, '%')}}</td>
+                                    <td v-else>&nbsp;</td>
+                                    <td v-if="driverData.subStacks[val]">
+                                        <span class="nowrap">{{DRIVER_SUBSTAT[val]}}{{Base.getUnit(val)}} * <input class="digit2" type="number" v-model="driverData.subStacks[val].current" min="0" :max="driverData.subStacks[val].max">
+                                        <button @click="driverData.subStacks[val].current --">-</button><button @click="driverData.subStacks[val].current ++">+</button></span>
+                                        <input type="range" :data-stat="val" v-model="driverData.subStacks[val].current" :min="0" :max="driverData.subStacks[val].max" @change="pattern.driver.subLimitCheck(val)" :disabled="pattern.calcMode == 'back'">
+                                    </td>
+                                    <td v-else>&nbsp;</td>
+                                    <td>{{pattern.driver.getEffectValue(val)}}{{Base.getUnit(val, '%')}}</td>
+                                </tr>
+                            </tbody>-->
+                        </table>
+                    </fieldset>
+                </section>
+            </section>
+            <footer v-show="ready">
+                <menu>
+                    <li><button @click="display.base = !display.base">基本値設定</button></li>
+                    <li></li>
+                    <li><button @click="display.graph = !display.graph">グラフ表示</button></li>
+                </menu>
+            </footer>
+        </main>
+        <script type="module">
+            'use strict'
+            import { ref, createApp, onBeforeUpdate, onUpdated, onMounted, useTemplateRef } from 'vue'
+            import { Base } from './lib/base.js'
+            import { Agent } from './lib/agent.js'
+            import { Wengine } from './lib/wengine.js'
+            import { Driver } from './lib/driver.js'
+            import { Calculator } from './lib/calc.js'
+            import { Graph } from './lib/graph.js'
+            
+            const ready = ref(false)
+            await Promise.all([Agent.ready])
+            
+            Base.lang = 'jp'
+            Base.setExcludeStatus(['aPrf', 'aBld', 'imp', 'eReg', 'pen', 'penV'])
+            const WENGINE_ADVLIST = Wengine.getAdvStatusList()
+            const DRIVER_LIST = Driver.getDiscList()
+            const DRIVER_STATUSLIST = Driver.getStatusList()
+            const DRIVER_MAINSTAT = Driver.getMainAll(15)
+            const DRIVER_MAINLIST = Driver.getMainStatusList()
+            const DRIVER_SUBSTAT = Driver.getSubAll()
+
+            const agentSet = ref([])
+            agentSet.value.push(new Calculator(0, 0))
+            var setNum = ref(0)
+
+            const driverData = ref(agentSet.value[setNum.value].driver)
+            const outputCalcMode = ref('normal')
+
+            createApp({
+                setup() {
+                    const display = ref({
+                        graph: false,
+                        base: true,
+                        pattern: false,
+                    })
+                    const vp = ref({
+                        w: window.innerWidth, h: window.innerHeight
+                    })
+                    const filterState = ref({role: Infinity, rarity: Infinity, element: Infinity, faction: Infinity})
+                    const canvas = useTemplateRef('canvas')
+                    let ctx
+                    let graph// = new Graph(canvas.value.getContext('2d'), margin)
+                    let hAxisMode = ref()
+                    const data = agentSet.value[setNum.value]
+
+                    onMounted(() => {
+                        driverData.value.updateData()
+                        const margin = {top: 30, right: 45, bottom: 30, left: 45}
+                        graph = new Graph(canvas.value.getContext('2d'), margin)
+                        hAxisMode.value = graph.hAxisMode
+                        ready.value = true
+                    })
+                    onBeforeUpdate(() => {
+                        driverData.value.updateData()
+                        graph.refreshField()
+                    })
+                    onUpdated(() => {
+                        console.log('updated')
+                    })
+
+                    return {
+                        vp, ready, display,
+                        Base, Agent, Wengine, Driver,
+                        WENGINE_ADVLIST, DRIVER_LIST, DRIVER_MAINSTAT, DRIVER_MAINLIST, DRIVER_SUBSTAT,
+                        agentSet, setNum, driverData,
+                        hAxisMode, outputCalcMode, filterState,
+                        onMounted, onUpdated, onBeforeUpdate,
+                    }
+                }
+            }).mount('main')
+        </script>
+    </body>
+</html>

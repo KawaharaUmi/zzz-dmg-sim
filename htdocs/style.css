@@ -1,0 +1,252 @@
+@property --stage-width {
+    syntax: "<length> | auto";
+    inherits: false;
+    initial-value: 1000px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: none;
+    list-style: none;
+    font-size: 9pt;
+    line-height: 150%;
+    color: #ccc;
+    appearance: none;
+    user-select: none;
+}
+
+body {
+    margin-bottom: 100px;
+    background-color: #222;
+}
+
+main {
+    margin: 0 auto;
+    max-width: var(--stage-width);
+}
+
+main > section {
+    width: 100dvw;
+}
+
+main > footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100dvw;
+    margin-top: 10px;
+    background: #000e;
+    padding: 10px calc((100dvw - var(--stage-width) - 10px) / 2);
+}
+
+@media screen and (max-width: 959px) {
+    main {
+        width: 100dvw;
+    }
+
+    main > section > section {
+        width: 100dvw;
+        overflow-x: scroll;
+        display: flex;
+        flex-wrap: nowrap;
+    }
+
+    main > section > section > * {
+        margin: 5px;
+        min-width: calc(100dvw - 10px);
+    }
+
+    main > footer {
+        width: 100dvw;
+        padding: 10px;
+    }
+}
+
+main > [v-show] {
+    display: none;
+}
+
+div, fieldset, ul, ol, dl, table {
+    margin: 5px 0;
+}
+
+fieldset {
+    border: solid 2px #000;
+    border-radius: 10px;
+    background: #111;
+    padding: 0 5px;
+}
+
+legend {
+    margin: 0;
+    padding: 0 5px;
+    font-size: 10.5pt;
+    font-weight: bold;
+    color: #999;
+}
+
+button {
+    margin: 0 2px;
+    min-width: 30px;
+    height: 20px;
+    background: #000;
+    border-radius: 10px;
+}
+
+input:not([type="range"]), select {
+    background: #000;
+    border-radius: 10px;
+    padding: 3px 10px;
+}
+
+input[type="range"] {
+    background: #000;
+    margin: 3px 0;
+    width: 100%;
+    max-width: 150px;
+    height: 20px;
+    border-radius: 10px;
+    padding: 0 2px;
+    vertical-align: -4.5pt;
+}
+
+input[type="range"]::-webkit-slider-runnable-track,
+input[type="range"]::-moz-range-track {
+    background: none;
+    height: 20px;
+    border-radius: 10px;
+}
+
+input[type="range"]::-webkit-slider-thumb,
+input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 9px;
+    border: none;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+    height: 20px;
+    width: 4.5em;
+    text-align: right;
+    text-indent: -1em;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+}
+
+input[type="text"] {
+    width: 4em;
+    text-align: right;
+}
+
+input[disabled] {
+    border: none;
+    background: none;
+}
+
+input[type="radio"], input[type="checkbox"] {
+    display: none;
+}
+
+label {
+    margin: 3px;
+    white-space: nowrap;
+    line-height: 100%;
+}
+
+label:has(input[type="radio"]) {
+    display: inline-block;
+    background: #000;
+    border-radius: 10px;
+    padding: 3px 10px;
+}
+
+label:has(input[type="radio"]:checked) {
+    background: #3c3;
+    font-weight: bold;
+    color: #000;
+}
+
+li, dt, dd {
+    margin: 3px 0;
+}
+
+li {
+    display: inline-block;
+    margin: 5px 0;
+}
+
+dt {
+    font-weight: bold;
+}
+
+dd {
+    margin-left: 10px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    border: solid 2px #333;
+    border-radius: 5px;
+}
+
+caption {
+    text-align: left;
+    font-weight: bold;
+}
+
+col.row-header {
+    background: #000;
+}
+
+col.total {
+    background: #000;
+    min-width: 4em;
+}
+
+th, td {
+    border-bottom: solid 1px #333;
+    border-left: dotted 1px #333;
+    padding: 3px 6px;
+}
+
+td {
+    text-align: right;
+}
+
+canvas {
+    background: #000e;
+}
+
+#graph {
+    position: sticky;
+    top: 0;
+    left: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.agent-status {
+    margin: 0;
+    background: #000e;
+    padding: 5px;
+}
+
+.value {
+    text-align: right;
+}
+
+.digit2 {
+    width: 3em !important; 
+}
+
+.nowrap {
+    white-space: nowrap;
+}
