@@ -42,21 +42,15 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr id="agent-final-status">
-                                <th>開幕</th>
-                                <td v-for="val,key in data.calcStartingStatus(true)">
-                                    {{val}}{{Base.getUnit(key, '%')}}
+                            <tr v-for="obj,key in data.calcStartingStatus(true)">
+                                <th v-if="key === 'starting'">開幕</th>
+                                <th v-if="key === 'add'">加算</th>
+                                <th v-if="key === 'base'">基礎</th>
+                                <td v-for="val,label in obj">
+                                    {{val}}{{Base.getUnit(label, '%')}}
                                 </td>
                             </tr>
                         </tbody>
-                        <tfoot>
-                            <tr id="agent-base-status">
-                                <th>基礎</th>
-                                <td v-for="val, key of data.agent.getAllStatus()">
-                                    {{val}}{{Base.getUnit(key, '%')}}
-                                </td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
                 <section style="overflow-x: scroll; display: flex;">
@@ -160,24 +154,34 @@
                                 <th>&nbsp;</th>
                                 <th>2Set</th>
                                 <th>Main</th>
-                                <th>Sub ({{}}/{{Driver.getStackLimit()}})</th>
+                                <th>Sub ({{data.driver.getStackTotal()}}/{{Driver.getStackLimit()}})</th>
                                 <th>Total</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="val,key in Driver.getStatusList()">
-                                <th scope="col">{{Base.getLabel(val)}}({{Base.getUnit(val)}})</th>
-                                <td v-if="data.driver.getSetEffect(val)">{{data.driver.getSetEffect(val)}}{{Base.getUnit(val, '%')}}</td>
+                            <tr v-for="label in Driver.getStatusList()">
+                                <th scope="col">{{Base.getLabel(label)}}({{Base.getUnit(label)}})</th>
+                                <td v-if="data.driver.getSetEffect(label)">{{data.driver.getSetEffect(label)}}{{Base.getUnit(label, '%')}}</td>
                                 <td v-else>&nbsp;</td>
-                                <td v-if="data.driver.getMainValue(val)">{{data.driver.getMainValue(val)}}{{Base.getUnit(val, '%')}}</td>
+                                <td v-if="data.driver.getMainValue(label)">{{data.driver.getMainValue(label)}}{{Base.getUnit(label, '%')}}</td>
                                 <td v-else>&nbsp;</td>
-                                <td v-if="driverData.subStacks[val]">
-                                    <span class="nowrap">{{DRIVER_SUBSTAT[val]}}{{Base.getUnit(val)}} * <input class="digit2" type="number" v-model="driverData.subStacks[val].current" min="0" :max="driverData.subStacks[val].max">
-                                    <button @click="driverData.subStacks[val].current --">-</button><button @click="driverData.subStacks[val].current ++">+</button></span>
-                                    <input type="range" :data-stat="val" v-model="driverData.subStacks[val].current" :min="0" :max="driverData.subStacks[val].max" @change="data.driver.subLimitCheck(val)" :disabled="data.calcMode == 'back'">
+                                <td v-if="data.driver.subEffect[label]">
+                                    <span class="nowrap">{{DRIVER_SUBSTAT[label]}}{{Base.getUnit(label)}} * <input class="digit2" type="number" v-model="data.driver.subEffect[label].stack" min="0" :max="data.driver.subEffect[label].max">
+                                    <button @click="data.driver.subEffect[label].stack --">-</button><button @click="data.driver.subEffect[label].stack ++">+</button></span>
+                                    <input type="range"
+                                        v-model="data.driver.subEffect[label].stack"
+                                        :min="0" :max="data.driver.subEffect[label].max"
+                                        :style="`background: linear-gradient(90deg ,
+                                            #000 10px,
+                                            #000 calc(
+                                                10px +
+                                                ((100% - 20px) / ${data.driver.subEffect[label].max}) * 
+                                                (${(Driver.getStackLimit() - data.driver.getStackTotal())} + ${data.driver.subEffect[label].stack})
+                                            ),
+                                            #999 10px)`">
                                 </td>
                                 <td v-else>&nbsp;</td>
-                                <td>{{data.driver.getEffectValue(val)}}{{Base.getUnit(val, '%')}}</td>
+                                <td>{{data.driver.getEffectValue(label)}}{{Base.getUnit(label, '%')}}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -193,22 +197,22 @@
                         <dl>
                             <dt>ドライバコンビネーション</dt>
                             <dd v-for="i in 3">
-                                <select v-model="pattern.driver.combo[i-1]">
+                                <select v-model="pattern.driver.combination[i-1]">
                                     <option v-for="val, key of DRIVER_LIST" :value="key">{{val}}</option>
                                 </select> x 2
                             </dd>
-                            <div v-for="label, key of pattern.driver.main.slice(3)">
+                            <div v-for="label, key of pattern.driver.mainStatus.slice(3)">
                                 <dt>スロット{{key+4}} メインステータス</dt>
                                 <dd>
                                     <label v-for="item of DRIVER_MAINLIST[key+3]">
-                                        <input type="radio" v-model="pattern.driver.main[key+3]" :value="item">
+                                        <input type="radio" v-model="pattern.driver.mainStatus[key+3]" :value="item">
                                         {{Base.getLabel(item)}} +{{DRIVER_MAINSTAT[item]}}{{Base.getUnit(item)}}
                                     </label>
                                 </dd>
                             </div>
                         </dl>
                         <table>
-                            <caption>サブステータス設定 / ディスク効果合計</caption>
+                            <caption>サブステータス補正</caption>
                             <colgroup>
                                 <col class="row-header" />
                                 <col class="driver" span="3" />
@@ -222,23 +226,33 @@
                                     <th>Sub ({{}}/{{Driver.getStackLimit()}})</th>
                                     <th>Total</th>
                                 </tr>
-                            </thead><!--
+                            </thead>
                             <tbody>
                                 <tr v-for="val,key in Driver.getStatusList()">
                                     <th scope="col">{{Base.getLabel(val)}}({{Base.getUnit(val)}})</th>
-                                    <td v-if="pattern.driver.getSetEffect(val)">{{pattern.driver.getSetEffect(val)}}{{Base.getUnit(val, '%')}}</td>
+                                    <td v-if="pattern.driver.original.getSetEffect(val)">{{pattern.driver.original.getSetEffect(val)}}{{Base.getUnit(val, '%')}}</td>
                                     <td v-else>&nbsp;</td>
-                                    <td v-if="pattern.driver.getMainValue(val)">{{pattern.driver.getMainValue(val)}}{{Base.getUnit(val, '%')}}</td>
+                                    <td v-if="pattern.driver.original.getMainValue(val)">{{pattern.driver.original.getMainValue(val)}}{{Base.getUnit(val, '%')}}</td>
                                     <td v-else>&nbsp;</td>
-                                    <td v-if="driverData.subStacks[val]">
-                                        <span class="nowrap">{{DRIVER_SUBSTAT[val]}}{{Base.getUnit(val)}} * <input class="digit2" type="number" v-model="driverData.subStacks[val].current" min="0" :max="driverData.subStacks[val].max">
-                                        <button @click="driverData.subStacks[val].current --">-</button><button @click="driverData.subStacks[val].current ++">+</button></span>
-                                        <input type="range" :data-stat="val" v-model="driverData.subStacks[val].current" :min="0" :max="driverData.subStacks[val].max" @change="pattern.driver.subLimitCheck(val)" :disabled="pattern.calcMode == 'back'">
+                                    <td v-if="pattern.driver.original.subEffect[val]">
+                                        <span class="nowrap">
+                                            {{DRIVER_SUBSTAT[val]}}{{Base.getUnit(val)}} * 
+                                            <input class="digit2" type="number"
+                                            v-model="pattern.driver.adjustData[val].adjust"
+                                            :min="pattern.driver.adjustData[val].min"
+                                            :max="pattern.driver.adjustData[val].max">
+                                            <button @click="pattern.driver.adjustData[val].adjust --">-</button>
+                                            <button @click="pattern.driver.adjustData[val].adjust ++">+</button>
+                                        </span>
+                                        <input type="range" :data-stat="val"
+                                        v-model="pattern.driver.adjustData[val].adjust"
+                                        :min="pattern.driver.adjustData[val].min"
+                                        :max="pattern.driver.adjustData[val].max">
                                     </td>
                                     <td v-else>&nbsp;</td>
-                                    <td>{{pattern.driver.getEffectValue(val)}}{{Base.getUnit(val, '%')}}</td>
+                                    <td>{{}}{{Base.getUnit(val, '%')}}</td>
                                 </tr>
-                            </tbody>-->
+                            </tbody>
                         </table>
                     </fieldset>
                 </section>
@@ -272,12 +286,12 @@
             const DRIVER_MAINSTAT = Driver.getMainAll(15)
             const DRIVER_MAINLIST = Driver.getMainStatusList()
             const DRIVER_SUBSTAT = Driver.getSubAll()
+            const DRIVER_SUBLIST = Driver.getSubLabels()
 
             const agentSet = ref([])
             agentSet.value.push(new Calculator(0, 0))
             var setNum = ref(0)
 
-            const driverData = ref(agentSet.value[setNum.value].driver)
             const outputCalcMode = ref('normal')
 
             createApp({
@@ -285,7 +299,7 @@
                     const display = ref({
                         graph: false,
                         base: true,
-                        pattern: false,
+                        pattern: true,
                     })
                     const vp = ref({
                         w: window.innerWidth, h: window.innerHeight
@@ -298,25 +312,25 @@
                     const data = agentSet.value[setNum.value]
 
                     onMounted(() => {
-                        driverData.value.updateData()
+                        console.log('Vue app : mounted')
                         const margin = {top: 30, right: 45, bottom: 30, left: 45}
                         graph = new Graph(canvas.value.getContext('2d'), margin)
                         hAxisMode.value = graph.hAxisMode
                         ready.value = true
                     })
                     onBeforeUpdate(() => {
-                        driverData.value.updateData()
+                        console.log('Vue app : before update')
                         graph.refreshField()
                     })
                     onUpdated(() => {
-                        console.log('updated')
+                        console.log('Vue app : updated')
                     })
 
                     return {
                         vp, ready, display,
                         Base, Agent, Wengine, Driver,
                         WENGINE_ADVLIST, DRIVER_LIST, DRIVER_MAINSTAT, DRIVER_MAINLIST, DRIVER_SUBSTAT,
-                        agentSet, setNum, driverData,
+                        agentSet, setNum,
                         hAxisMode, outputCalcMode, filterState,
                         onMounted, onUpdated, onBeforeUpdate,
                     }

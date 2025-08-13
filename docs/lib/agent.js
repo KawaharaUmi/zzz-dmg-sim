@@ -123,7 +123,7 @@ class Agent extends Base {
         this.rarity = data.rarity
         this.element = data.element
         this.faction = data.faction
-        this.baseStatus = data.status
+        Object.assign(this.baseStatus, data.status)
         this.coreSkill = data.core
         this.coreLvl = this.coreLvl
     }

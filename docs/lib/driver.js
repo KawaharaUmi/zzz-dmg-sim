@@ -53,6 +53,14 @@ class Driver extends Base {
         eRegV: null, eRegR: null,
     }
 
+    static getSubLabels() {
+        const result = []
+        for(const label of Object.keys(this._subStatusValue)) {
+            if(this._subStatusValue[label] && !this.checkExclude(label)) result.push(label)
+        }
+        return result
+    }
+
     static getSubAll() {
         const result = {}
         for(const key of Object.keys(this._subStatusValue)) {
@@ -113,6 +121,9 @@ class Driver extends Base {
         return this._discDataList[id]
     }
 
+    static discNum = 6
+    static maxSubStackPerDisc = 6
+    static _maxCountPerSubStatus = this.maxSubStackPerDisc * this.discNum
     static _maxCountPerDisc = 9
     static _maxCountPerSubStatus = 6 * 6
     static _subTotalLimit = this._maxCountPerDisc * 6
@@ -130,25 +141,50 @@ class Driver extends Base {
 
     combination = []
     mainStatus = ["hpV", "atkV", "defV", "cHit", "bDmg", "atkR"]
-    subStacks = {}
+    subEffect = {}
     stackTotal
     buffs = []
 
     constructor(ids = [1, 15, 15]) {
         super()
-        this.resetFactors()
-        for(const [key,val] of Object.entries(Driver._subStatusValue)) {
-            if(val) {
-                this.subStacks[key] = { max: Driver._maxCountPerSubStatus, current: 0 }
+        for(const label of Driver.getSubLabels()) {
+            const target = this.subEffect[label] = {
+                _stack: 0,
             }
+            Object.defineProperty(target, 'stack', {
+                get: () => target._stack,
+                set: (val) => {
+                    if(val < target.min) {
+                        target._stack = target.min
+                    } else if(val > target.max) {
+                        target._stack = target.max
+                    } else {
+                        target._stack = val
+                    }
+                    if(this.getStackTotal() > Driver.getStackLimit()) target._stack = val - (this.getStackTotal() - Driver.getStackLimit())
+                }
+            })
+            Object.defineProperty(target, 'min', {
+                get: () => {
+                    if(target.stack < 0) target.stack = 0
+                    return 0
+                }
+            })
+            Object.defineProperty(target, 'max', {
+                get: () => {
+                    const result = 6 * (6 - this.mainStatus.reduce((a,c) => (c === label) ? a + 1 : a, 0))
+                    if(target.stack > result) target.stack = result
+                    return result
+                },
+            })
+            Object.defineProperty(target, 'value', {
+                get: () => Driver.calcSub(label, target.stack),
+            })
         }
         this.combination = ids.slice(0, 3)
         for(const id of this.combination) {
             if(typeof id !== 'number') throw new Error('Inviled arguments: number型を列挙したArray型が必要です。')
-            const data = Driver.getDriverData(id)
-            
         }
-        this.updateData()
         console.log('Driver', this)
     }
 
@@ -158,12 +194,12 @@ class Driver extends Base {
         if(setEffect) total += setEffect
         const mainValue = this.getMainValue(label)
         if(mainValue) total += mainValue
-        if(this.subStacks[label]) total += Driver.calcSub(label, this.subStacks[label].current)
+        if(this.subEffect[label]) total += Driver.calcSub(label, this.subEffect[label].stack)
         return total
     }
 
     getAllEffects() {
-        const result = { setEffect: {}, mainEffect: {}, subEffect: this.getSubEffectAll() }
+        const result = { setEffect: {}, mainEffect: {}, subEffect: this.subEffect }
         for(const label of Driver.getStatusList()) {
             const setEffect = this.getSetEffect(label)
             if(setEffect) result.setEffect[label] = setEffect
@@ -174,15 +210,15 @@ class Driver extends Base {
     }
 
     getSubEffectStack(label) {
-        return { current: this.subStacks[label].current, max: this.subStacks[label].max }
+        return { stack: this.subEffect[label].stack, max: this.subEffect[label].max }
     }
 
     getSubEffectAll() {
         const result = {}
-        for(const label in this.subStacks) {
+        for(const label in this.subEffect) {
             const subStack = this.getSubEffectStack(label)
             result[label] = {
-                value: Driver.calcSub(label, subStack.current),
+                value: Driver.calcSub(label, subStack.stack),
                 stack: subStack,
             }
         }
@@ -191,42 +227,12 @@ class Driver extends Base {
 
     getStackTotal() {
         let count = 0
-        for(const key in this.subStacks) {
-            count += Number(this.subStacks[key].current)
+        for(const label in this.subEffect) {
+            count += Number(this.subEffect[label].stack)
         }
         return count
     }
-
-    subLimitCheck(label) {
-        const total = this.getStackTotal()
-        if(total > Driver._subTotalLimit) this.subStacks[label].current -= (total - Driver._subTotalLimit)
-    }
     
-    updateData() {
-        for(const key in this.subStacks) {
-            const count = this.mainStatus.reduce((a,c) => (c === key) ? a + 1 : a , 0)
-            const target = this.subStacks[key]
-            target.max = 36 - 6 * count
-            if(target.current > target.max) target.current = target.max
-        }
-        this.resetFactors()
-        for(const key of Driver.getStatusList()) {
-            this[key] += this.getSetEffect(key)
-        }
-        for(const key of this.mainStatus) {
-            this[key] += Driver.calcMain(key, 15)
-        }
-        for(const key in this.subStacks) {
-            this[key] += Driver.calcSub(key, this.subStacks[key].current)
-        }
-    }
-
-    resetFactors() {
-        for(const key of new Set([...Object.keys(Driver._mainStatusValue), ...Object.keys(Driver._subStatusValue)])) {
-            this[key] = 0
-        }
-    }
-
     getSetEffect(type) {
         const idSet = new Set(this.combination)
         let result = 0
