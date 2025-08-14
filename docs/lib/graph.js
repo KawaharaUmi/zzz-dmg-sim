@@ -2,11 +2,16 @@ export { Graph }
 
 class Graph {
 
-    ctx
+    static createElement(name) {
+        const ns = 'http://www.w3.org/2000/svg'
+        return document.createElementNS(ns, name)
+    }
+
+    field
     width
     height
     margin
-    field
+    stage = { x: 0, y: 0, width: 0, height: 0 }
     origin
     lineStyle = {
         base: {color: '#333', width: 2},
@@ -26,9 +31,9 @@ class Graph {
         v: 2,
     }
 
-    scaleH = 100
-    scaleV = 100
-    hAxisMode = 'cHit'
+    scaleH = 1
+    scaleV = 1
+    hAxisMode = ''
     vAxisMode = 'output'
     hMin = 0
     _hMax = 36
@@ -46,12 +51,19 @@ class Graph {
     set vMax(val) {
         this._vMax = val
         this.scaleV = this.field.height / 1.1 / (val - this.vMin)
-        console.log('vMin :', this.vMin, '/ vMax :', this._vMax)
-        console.log('scaleV :', this.scaleV)
     }
     get vMax() {
         return this._vMax
     }
+
+    layer = {
+        background: {},
+        grid: {},
+        main: {},
+        baseline: {},
+        text: {},
+    }
+    objects = []
 
     dummyData = [
         [
@@ -70,12 +82,17 @@ class Graph {
         ],
     ]
     
-    constructor (ctx, margin = {top: 0, right: 0, bottom: 0, left: 0}) {
-        this.ctx = ctx
-        this.width = ctx.canvas.width
-        this.height = ctx.canvas.height
+    constructor (field, margin = {top: 0, right: 0, bottom: 0, left: 0}) {
+        this.field = field
+        for(const key of Object.keys(this.layer)) {
+            this.layer[key] = this.field.querySelector('#layer-' + key)
+        }
+        this.width = this.field.parentNode.clientWidth
+        this.height = Number(this.field.getAttribute('height'))
         this.margin = margin
-        this.field = {
+        this.stage = {
+            x: this.margin.left,
+            y: this.margin.top,
             width: this.width - this.margin.right - this.margin.left,
             height: this.height - this.margin.top - this.margin.bottom
         }
@@ -83,12 +100,8 @@ class Graph {
             x: this.margin.left,
             y: this.height - this.margin.bottom
         }
-    }
 
-    drawGraph(data) {
-        for(const key in data) {
-            this.drawLine(this.graphStyle[key].color, 1, data[key])
-        }
+        this.refreshField()
     }
 
     refreshField (data = this.dummyData) {
@@ -100,58 +113,69 @@ class Graph {
         this.vMin = Math.min(...values)
         this.vMax = Math.max(...values)
         
-        this.clearField()
-        this.drawGrid()
-        this.drawGraph(data)
         this.drawField()
+        this.drawGrid()
+        for(const key in data) {
+            this.drawGraph(key, data[key])
+        }
     }
 
-    clearField () {
-        this.ctx.clearRect(0,0, this.width, this.height)
+    clearField(target = [this.layer.main]) {
+        for(const layer of target) {
+            for(const obj of layer.childNodes) {
+                obj.remove()
+            }
+        }
+    }
+
+    drawGraph(id, data) {
+        const coord = []
+        for(const key in data) {
+            coord.push({
+                x: this.stage.width / 1.1 / (this.hMax - this.hMin) * (data[key].x - this.hMin),
+                y: this.stage.height / 1.1 / (this.vMax - this.vMin) * (data[key].y - this.vMin),
+            })
+        }
+        this.createPolyline(this.layer.main, 'graph-'+id, coord, this.graphStyle[id].color, this.graphStyle[id].width)
     }
     
     drawGrid() {
+        this.clearField([this.layer.grid])
         for(let i = 0; i < this.grid.v; i++) {
-            const vGridLine = [
-                {
-                    x: 0,
-                    y: this.field.height / 1.1 / this.grid.v * (i + 1)
-                },
-                {
-                    x: this.field.width,
-                    y: this.field.height / 1.1 / this.grid.v * (i + 1)
-                }
-            ]
-            this.drawLine(this.lineStyle.hGrid.color, this.lineStyle.hGrid.width, vGridLine, undefined, false)
+            const start = {
+                x: 0,
+                y: this.stage.height / 1.1 / this.grid.v * (i + 1)
+            }
+            const end = {
+                x: this.stage.width,
+                y: this.stage.height / 1.1 / this.grid.v * (i + 1)
+            }
+            this.createLine(this.layer.grid, 'grid-v-'+i, start, end, this.lineStyle.hGrid.color, this.lineStyle.hGrid.width, false)
         }
         for(let i = 0; i < this.grid.h; i++) {
-            const hGridLine = [
-                {
-                    x: this.field.width / 1.1 / this.grid.h * (i + 1),
-                    y: 0
-                },
-                {
-                    x: this.field.width / 1.1 / this.grid.h * (i + 1),
-                    y: this.field.height
-                }
-            ]
-            this.drawLine(this.lineStyle.vGrid.color, this.lineStyle.vGrid.width, hGridLine, undefined, false)
+            const start = {
+                x: this.stage.width / 1.1 / this.grid.h * (i + 1),
+                y: 0
+            }
+            const end = {
+                x: this.stage.width / 1.1 / this.grid.h * (i + 1),
+                y: this.stage.height
+            }
+            this.createLine(this.layer.grid, 'grid-v-'+i, start, end, this.lineStyle.hGrid.color, this.lineStyle.hGrid.width, false)
         }
     }
 
     drawField() {
-        const vBaseLine = [
-            {x: 0, y: 0},
-            {x: this.field.width, y: 0}
-        ]
-        this.drawLine(this.lineStyle.base.color, this.lineStyle.base.width, vBaseLine, undefined, false)
-        const hBaseLine = [
-            {x: 0, y: 0},
-            {x: 0, y: this.field.height}
-        ]
-        this.drawLine(this.lineStyle.base.color, this.lineStyle.base.width, hBaseLine, undefined, false)
+        this.clearField([this.layer.baseline, this.layer.text])
+        this.createPolyline(this.layer.baseline, 'baseline', [{x:0,y:this.stage.height},{x:0,y:0},{x:this.stage.width,y:0}], this.lineStyle.base.color, this.lineStyle.base.width, false)
 
-        this.drawText('ダメージ出力', this.textColor, {x: 0, y: this.field.height + 5})
+        this.createText(this.layer.text, 'v-value-label', {x:0, y: this.stage.height + 5}, 'ダメージ出力', 'middle', this.textColor)
+        for(let i = 0; i <= this.grid.v; i++) {
+            const pos = {x: -3, y: 0 + this.stage.height / 1.1 / this.grid.v * i}
+            const text = Math.floor(this.vMin + (this.vMax - this.vMin) / this.grid.v * i)
+            this.createText(this.layer.text, 'v-value-'+i, pos, text, 'end', this.textColor)
+        }
+        
         let text
         switch(this.hAxisMode) {
             case 'cHit':
@@ -163,16 +187,16 @@ class Graph {
             case 'atk':
                 text = '攻撃力(@3.0%)'
                 break
+            default:
+                text = 'スタック数'
+                break
         }
-        //console.log(text)
-        this.drawText(text, this.textColor, {x: this.field.width, y: -15})
-        for(let i = 0; i <= this.grid.v; i++) {
-            const pos = {x: -3, y: 0 + this.field.height / 1.1 / this.grid.v * i}
-            this.drawText(this.vMin + (this.vMax - this.vMin) / this.grid.v * i, this.textColor, pos, 'right')
-        }
+        this.createText(this.layer.text, 'h-value-label', {x:this.width - this.margin.left - 15, y: -30}, text, 'end', this.textColor)
         for(let i = 0; i <= (this.hMax - this.hMin); i++) {
-            const pos = {x: this.field.width / 1.1 / (this.hMax - this.hMin) * i, y: -15}
-            this.drawText(this.hMin + i, this.textColor, pos)
+            const pos = {x: this.stage.width / 1.1 / (this.hMax - this.hMin) * i, y: -15}
+            let text = this.hMin + i
+            if(text > 0) text = '+' + text
+            this.createText(this.layer.text, 'h-value-'+i, pos, text, 'middle', this.textColor)
         }
     }
 
@@ -205,12 +229,42 @@ class Graph {
         this.ctx.stroke(path)
         return path
     }
+    
 
-    drawText (text, color, pos = {x: 0, y: 0}, align = 'center') {
-        this.ctx.fillStyle = color
-        this.ctx.textAlign = align
-        this.ctx.fillText(text, this.origin.x + pos.x, this.origin.y - pos.y)
-
+    createLine(layer, id, start = {x: 0, y: 0}, end = {x: 0, y: 0}, color = '#ffff', width = '1pt', scaling = true) {
+        const ele = Graph.createElement('line')
+        ele.setAttribute('id', id)
+        ele.setAttribute('x1', this.origin.x + start.x)
+        ele.setAttribute('y1', this.origin.y - start.y)
+        ele.setAttribute('x2', this.origin.x + end.x)
+        ele.setAttribute('y2', this.origin.y - end.y)
+        ele.setAttribute('stroke', color)
+        ele.setAttribute('stroke-width', width)
+        layer.appendChild(ele)
+        return ele
     }
 
+    createPolyline(layer, id, points = [{x: 0, y: 0}, {x: 0, y: 0}], color = '#ffff', width = '1pt', scaling = true) {
+        const data = points.map(e => (this.origin.x + e.x) + ' ' + (this.origin.y - e.y)).join(' ')
+        const ele = Graph.createElement('polyline')
+        ele.setAttribute('id', id)
+        ele.setAttribute('points', data)
+        ele.setAttribute('stroke', color)
+        ele.setAttribute('stroke-width', width)
+        ele.setAttribute('fill', 'transparent')
+        layer.appendChild(ele)
+        return ele
+    }
+
+    createText(layer, id, coord = {x: 0, y: 0}, text = '?', align = 'start', color = '#ffff', scaling = true) {
+        const ele = Graph.createElement('text')
+        ele.setAttribute('id', id)
+        ele.setAttribute('x', this.origin.x + coord.x)
+        ele.setAttribute('y', this.origin.y - coord.y)
+        ele.setAttribute('fill', color)
+        ele.setAttribute('text-anchor', align)
+        ele.append(text)
+        layer.appendChild(ele)
+        return ele
+    }
 }

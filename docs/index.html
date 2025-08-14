@@ -14,7 +14,13 @@
     </head>
     <body>
         <main>
-            <canvas ref="canvas" id="graph" :width="vp.w" :height="300" v-show="ready && display.graph"></canvas>
+            <svg id="graph" version="1.1" xmlns="http://www.w3.org/2000/svg" width="100%" height="300" v-show="ready && display.graph">
+                <rect id="layer-background" x="0" y="0" width="100%" height="100%" fill="#000e"></rect>
+                <g id="layer-grid"></g>
+                <g id="layer-main"></g>
+                <g id="layer-baseline"></g>
+                <g id="layer-text"></g>
+            </svg>
             <!--
             <div>
                 グラフ横軸 :
@@ -294,10 +300,14 @@
 
             const outputCalcMode = ref('normal')
 
+            const field = document.querySelector('#graph')
+            const stageMargin = {top: 30, right: 45, bottom: 45, left: 45}
+            const graph = new Graph(field, stageMargin)
+
             createApp({
                 setup() {
                     const display = ref({
-                        graph: false,
+                        graph: true,
                         base: true,
                         pattern: true,
                     })
@@ -305,22 +315,14 @@
                         w: window.innerWidth, h: window.innerHeight
                     })
                     const filterState = ref({role: Infinity, rarity: Infinity, element: Infinity, faction: Infinity})
-                    const canvas = useTemplateRef('canvas')
-                    let ctx
-                    let graph// = new Graph(canvas.value.getContext('2d'), margin)
-                    let hAxisMode = ref()
                     const data = agentSet.value[setNum.value]
 
                     onMounted(() => {
                         console.log('Vue app : mounted')
-                        const margin = {top: 30, right: 45, bottom: 30, left: 45}
-                        graph = new Graph(canvas.value.getContext('2d'), margin)
-                        hAxisMode.value = graph.hAxisMode
                         ready.value = true
                     })
                     onBeforeUpdate(() => {
                         console.log('Vue app : before update')
-                        graph.refreshField()
                     })
                     onUpdated(() => {
                         console.log('Vue app : updated')
@@ -331,7 +333,7 @@
                         Base, Agent, Wengine, Driver,
                         WENGINE_ADVLIST, DRIVER_LIST, DRIVER_MAINSTAT, DRIVER_MAINLIST, DRIVER_SUBSTAT,
                         agentSet, setNum,
-                        hAxisMode, outputCalcMode, filterState,
+                        outputCalcMode, filterState,
                         onMounted, onUpdated, onBeforeUpdate,
                     }
                 }

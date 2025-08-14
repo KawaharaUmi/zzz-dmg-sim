@@ -88,7 +88,6 @@ class Calculator extends Base {
         const baseStatus = this.agent.getAllStatus()
         baseStatus.atk += this.wengine.atk
         const {setEffect, mainEffect, subEffect} = this.driver.getAllEffects()
-        console.log(baseStatus)
         console.log('driverEffect:', setEffect, mainEffect, subEffect)
         for(const label in baseStatus) {
             let base = 0
