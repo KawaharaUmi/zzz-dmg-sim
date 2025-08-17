@@ -10,48 +10,78 @@
                 }
             }
         </script>
+        <script src="./lib/exmath.js"></script>
         <link rel="stylesheet" href="./style.css" type="text/css">
     </head>
     <body>
         <main>
             <svg id="graph" version="1.1" xmlns="http://www.w3.org/2000/svg" width="100%" height="300" v-show="ready && display.graph">
                 <rect id="layer-background" x="0" y="0" width="100%" height="100%" fill="#000e"></rect>
-                <g id="layer-grid"></g>
-                <g id="layer-main"></g>
-                <g id="layer-baseline"></g>
-                <g id="layer-text"></g>
+                <g id="layer-grid">
+                    <g v-for="data of graph.hGridCoord()">
+                        <line
+                            :x1="data.start.x" :y1="data.start.y"
+                            :x2="data.end.x" :y2="data.end.y"
+                            :class="'grid '+data.style"
+                        />
+                        <text v-if="data.style === 'solid'"
+                            :x="data.start.x"
+                            :y="data.start.y + 10"
+                            text-anchor="middle">{{data.text}}</text>
+                    </g>
+                    <g v-for="data of graph.vGridCoord()">
+                        <line 
+                            :x1="data.start.x" :y1="data.start.y"
+                            :x2="data.end.x" :y2="data.end.y"
+                            :class="'grid '+data.style"
+                        />
+                        <text v-if="data.style === 'solid'"
+                            :x="data.start.x - 5"
+                            :y="data.start.y"
+                            text-anchor="end">{{data.text}}</text>
+                    </g>
+                </g>
+                <g id="layer-main">
+                    <line
+                        :x1="graph.origin.x"
+                        :y1="100"
+                        :x2="graph.origin.x + graph.stage.width"
+                        :y2="100"
+                        stroke="#900" stroke-width="1" stroke-dasharray="2,2" />
+                    <polyline v-for="data,key of agentSet.result"
+                        :points="graph.drawGraph(data)"
+                        :stroke="graph.graphStyle[key].color"
+                        :stroke-width="graph.graphStyle[key].width"
+                        fill="transparent"
+                    />
+                </g>
+                <g id="layer-baseline">
+                    <polyline
+                        :points="graph.baseLine()"
+                        :stroke="graph.lineStyle.base.color"
+                        :stroke-width="graph.lineStyle.base.width"
+                        fill="transparent"
+                    />
+                </g>
+                <g id="layer-text">
+                    <text :x="graph.origin.x" :y="graph.margin.top-5" text-anchor="middle" fill="#fff">ダメージ出力</text>
+                    <text :x="graph.origin.x + graph.stage.width" :y="graph.height" text-anchor="middle" fill="#fff">サブステータススタック数</text>
+                </g>
             </svg>
-            <!--
-            <div>
-                グラフ横軸 :
-                <label><input type="radio" v-model="hAxisMode" value="cHit">会心率</label>
-                / <label><input type="radio" v-model="hAxisMode" value="cDmg">会心ダメージ</label>
-                / <label><input type="radio" v-model="hAxisMode" value="atk">ATK</label>
-            </div>
-            <div>
-                計算モード : <label><input type="radio" v-model="outputCalcMode" value="normal">一般</label>
-                / <label><input type="radio" v-model="outputCalcMode" value="yixien">イーシェン師匠</label>
-                / <label><input type="radio" v-model="outputCalcMode" value="ben">ベンさん</label>
-            </div>
-            -->
-            <section v-for="data of agentSet" v-show="ready && display.base">
-                <div class="agent-status" :style="'position: sticky; top: ' + (display.graph ? '300px' : '0') + ';'">
+            <section v-show="ready && display.base">
+                <div class="agent-status" :style="'position: sticky; top: ' + (display.graph ? '300px' : '0') + ';'" v-show="display.status">
                     <table>
-                        <caption>エージェント : {{data.agent.name.full.jp}} [{{Base.getRoleName(data.agent.role)}}/{{Base.getElementName(data.agent.element)}}]</caption>
+                        <caption>エージェント : {{agentSet.agent.name.full.jp}} [{{Base.getRoleName(agentSet.agent.role)}}/{{Base.getElementName(agentSet.agent.element)}}]</caption>
                         <colgroup>
                             <col class="row-header" span="1" />
                         </colgroup>
                         <thead>
                             <tr>
-                                <th>&nbsp;</th>
-                                <th v-for="label of data.agent.getStatusList()">{{Base.getLabel(label)}}</th>
+                                <th v-for="label of agentSet.agent.getStatusList()">{{Base.getLabel(label)}}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="obj,key in data.calcStartingStatus(true)">
-                                <th v-if="key === 'starting'">開幕</th>
-                                <th v-if="key === 'add'">加算</th>
-                                <th v-if="key === 'base'">基礎</th>
+                            <tr v-for="obj,key in agentSet.calcStatus(undefined,0,true)" :class="key">
                                 <td v-for="val,label in obj">
                                     {{val}}{{Base.getUnit(label, '%')}}
                                 </td>
@@ -62,11 +92,6 @@
                 <section style="overflow-x: scroll; display: flex;">
                     <fieldset>
                         <legend>エージェント設定</legend>
-                        <!--
-                        <div>
-                            計算モード : <label><input type="radio" v-model="data.calcMode" value="fwd">積算</label> / <label><input type="radio" v-model="data.calcMode" value="back">逆算</label>
-                        </div>
-                        -->
                         <dl>
                             <dt>フィルター</dt>
                             <dd>
@@ -89,15 +114,15 @@
                             </dd>
                             <dt>対象エージェント</dt>
                             <dd>
-                                <select v-model="data.agent.id">
+                                <select v-model="agentSet.agent.id">
                                     <option v-for="{id, name}, key in Agent.getAgentList('full', 'jp', filterState)" :value="id">{{name}}</option>
                                 </select>
                             </dd>
                             <dt>コアスキルレベル</dt>
                             <dd>
-                                <label><input type="radio" v-model="data.agent.coreLvl" :value="0">-</label>
-                                <label v-for="val, key of ['A','B','C','D','E','F']"><input type="radio" v-model="data.agent.coreLvl" :value="key+1">{{val}}</label>
-                                <span class="nowrap">(追加ステータス : <span v-for="val, key in data.agent.coreEffect">{{Base.getLabel(key)}} +{{val}}{{Base.getUnit(key)}} , </span>)</span>
+                                <label><input type="radio" v-model="agentSet.agent.coreLvl" :value="0">-</label>
+                                <label v-for="val, key of ['A','B','C','D','E','F']"><input type="radio" v-model="agentSet.agent.coreLvl" :value="key+1">{{val}}</label>
+                                <span class="nowrap">(追加ステータス : <span v-for="val, key in agentSet.agent.coreEffect">{{Base.getLabel(key)}} +{{val}}{{Base.getUnit(key)}} , </span>)</span>
                                 </select>
                             </dd>
                             <dt>心象映画レベル</dt>
@@ -111,12 +136,12 @@
                             </colgroup>
                             <thead>
                                 <tr>
-                                    <th v-for="label of data.agent.getStatusList()">{{Base.getLabel(label)}}</th>
+                                    <th v-for="label of agentSet.agent.getStatusList()">{{Base.getLabel(label)}}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr id="agent-base-status">
-                                    <td v-for="val, key of data.agent.getAllStatus()">
+                                    <td v-for="val, key of agentSet.agent.getAllStatus()">
                                         {{val}}{{Base.getUnit(key, '%')}}
                                     </td>
                                 </tr>
@@ -125,23 +150,23 @@
                     </fieldset>
                     <fieldset>
                         <legend>装備セット(基礎)</legend>
-                        <label>ATK : <input type="number" v-model="data.wengine.atk"></label>
-                        <label>Adv-st : <select v-model="data.wengine.adv.type">
+                        <label>ATK : <input type="number" v-model="agentSet.wengine.atk"></label>
+                        <label>Adv-st : <select v-model="agentSet.wengine.adv.type">
                             <option v-for="item of WENGINE_ADVLIST" :value="item">{{Base.getLabel(item)}}</option>
                         </select>
-                        <input class="digit2" type="number" v-model="data.wengine.adv.value">{{Base.getUnit(data.wengine.adv.type)}}</label>
+                        <input class="digit2" type="number" v-model="agentSet.wengine.adv.value">{{Base.getUnit(agentSet.wengine.adv.type)}}</label>
                         <dl>
                             <dt>ドライバコンビネーション</dt>
                             <dd v-for="i in 3">
-                                <select v-model="data.driver.combination[i-1]">
+                                <select v-model="agentSet.driver.combination[i-1]">
                                     <option v-for="val, key of DRIVER_LIST" :value="key">{{val}}</option>
                                 </select> x 2
                             </dd>
-                            <div v-for="label, key of data.driver.mainStatus.slice(3)">
+                            <div v-for="label, key of agentSet.driver.main.slice(3)">
                                 <dt>スロット{{key+4}} メインステータス</dt>
                                 <dd>
                                     <label v-for="item of DRIVER_MAINLIST[key+3]">
-                                        <input type="radio" v-model="data.driver.mainStatus[key+3]" :value="item">
+                                        <input type="radio" v-model="agentSet.driver.main[key+3]" :value="item">
                                         {{Base.getLabel(item)}} +{{DRIVER_MAINSTAT[item]}}{{Base.getUnit(item)}}
                                     </label>
                                 </dd>
@@ -152,122 +177,148 @@
                         <caption>サブステータス設定 / ディスク効果合計</caption>
                         <colgroup>
                             <col class="row-header" />
-                            <col class="driver" span="3" />
+                            <col class="driver" />
                             <col class="total" />
                         </colgroup>
                         <thead>
                             <tr>
                                 <th>&nbsp;</th>
+                                <!--
                                 <th>2Set</th>
                                 <th>Main</th>
-                                <th>Sub ({{data.driver.getStackTotal()}}/{{Driver.getStackLimit()}})</th>
+                                -->
+                                <th>Sub ({{agentSet.driver.stackTotal}}/{{Driver.getStackLimit()}})</th>
                                 <th>Total</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-for="label in Driver.getStatusList()">
                                 <th scope="col">{{Base.getLabel(label)}}({{Base.getUnit(label)}})</th>
-                                <td v-if="data.driver.getSetEffect(label)">{{data.driver.getSetEffect(label)}}{{Base.getUnit(label, '%')}}</td>
+                                <!--
+                                <td v-if="agentSet.driver.getSetEffect(label)">{{agentSet.driver.getSetEffect(label)}}{{Base.getUnit(label, '%')}}</td>
                                 <td v-else>&nbsp;</td>
-                                <td v-if="data.driver.getMainValue(label)">{{data.driver.getMainValue(label)}}{{Base.getUnit(label, '%')}}</td>
+                                <td v-if="agentSet.driver.getMainValue(label)">{{agentSet.driver.getMainValue(label)}}{{Base.getUnit(label, '%')}}</td>
                                 <td v-else>&nbsp;</td>
-                                <td v-if="data.driver.subEffect[label]">
-                                    <span class="nowrap">{{DRIVER_SUBSTAT[label]}}{{Base.getUnit(label)}} * <input class="digit2" type="number" v-model="data.driver.subEffect[label].stack" min="0" :max="data.driver.subEffect[label].max">
-                                    <button @click="data.driver.subEffect[label].stack --">-</button><button @click="data.driver.subEffect[label].stack ++">+</button></span>
+                                -->
+                                <td v-if="agentSet.driver.sub[label]">
+                                    <span class="nowrap">{{DRIVER_SUBSTAT[label]}}{{Base.getUnit(label)}} * <input class="digit2" type="number" v-model="agentSet.driver.sub[label].stack" min="0" :max="agentSet.driver.sub[label].max">
+                                    <button @click="agentSet.driver.sub[label].stack --">-</button><button @click="agentSet.driver.sub[label].stack ++">+</button></span>
                                     <input type="range"
-                                        v-model="data.driver.subEffect[label].stack"
-                                        :min="0" :max="data.driver.subEffect[label].max"
+                                        v-model="agentSet.driver.sub[label].stack"
+                                        :min="0" :max="agentSet.driver.sub[label].max"
                                         :style="`background: linear-gradient(90deg ,
                                             #000 10px,
                                             #000 calc(
                                                 10px +
-                                                ((100% - 20px) / ${data.driver.subEffect[label].max}) * 
-                                                (${(Driver.getStackLimit() - data.driver.getStackTotal())} + ${data.driver.subEffect[label].stack})
+                                                ((100% - 20px) / ${agentSet.driver.sub[label].max}) * 
+                                                (${(Driver.getStackLimit() - agentSet.driver.stackTotal)} + ${agentSet.driver.sub[label].stack})
                                             ),
                                             #999 10px)`">
                                 </td>
                                 <td v-else>&nbsp;</td>
-                                <td>{{data.driver.getEffectValue(label)}}{{Base.getUnit(label, '%')}}</td>
+                                <td>{{agentSet.driver.getEffectValue(label)}}{{Base.getUnit(label, '%')}}</td>
                             </tr>
                         </tbody>
                     </table>
                 </section>
-                <section v-for="pattern, pNum of data.pattern" v-show="ready && display.pattern">
-                    <fieldset>
-                        <legend>装備パターン #{{pNum}}</legend>
-                        <label>ATK : <input type="number" v-model="pattern.wengine.atk"></label>
-                        <label>Adv-st : <select v-model="pattern.wengine.adv.type">
-                            <option v-for="item of WENGINE_ADVLIST" :value="item">{{Base.getLabel(item)}}</option>
-                        </select>
-                        <input class="digit2" type="number" v-model="pattern.wengine.adv.value">{{Base.getUnit(pattern.wengine.adv.type)}}</label>
-                        <dl>
-                            <dt>ドライバコンビネーション</dt>
-                            <dd v-for="i in 3">
-                                <select v-model="pattern.driver.combination[i-1]">
-                                    <option v-for="val, key of DRIVER_LIST" :value="key">{{val}}</option>
-                                </select> x 2
+            </section>
+            <section v-for="pattern, pNum of agentSet.pattern" v-show="ready && display.pattern[pNum]">
+                <fieldset>
+                    <legend>装備パターン #{{pNum+1}}</legend>
+                    <label>ATK : <input type="number" v-model="pattern.wengine.atk"></label>
+                    <label>Adv-st : <select v-model="pattern.wengine.adv.type">
+                        <option v-for="item of WENGINE_ADVLIST" :value="item">{{Base.getLabel(item)}}</option>
+                    </select>
+                    <input class="digit2" type="number" v-model="pattern.wengine.adv.value">{{Base.getUnit(pattern.wengine.adv.type)}}</label>
+                    <dl>
+                        <dt>ドライバコンビネーション</dt>
+                        <dd v-for="i in 3">
+                            <select v-model="pattern.driver.combination[i-1]">
+                                <option v-for="val, key of DRIVER_LIST" :value="key">{{val}}</option>
+                            </select> x 2
+                        </dd>
+                        <div v-for="label, key of pattern.driver.main.slice(3)">
+                            <dt>スロット{{key+4}} メインステータス</dt>
+                            <dd>
+                                <label v-for="item of DRIVER_MAINLIST[key+3]">
+                                    <input type="radio" v-model="pattern.driver.main[key+3]" :value="item">
+                                    {{Base.getLabel(item)}} +{{DRIVER_MAINSTAT[item]}}{{Base.getUnit(item)}}
+                                </label>
                             </dd>
-                            <div v-for="label, key of pattern.driver.mainStatus.slice(3)">
-                                <dt>スロット{{key+4}} メインステータス</dt>
-                                <dd>
-                                    <label v-for="item of DRIVER_MAINLIST[key+3]">
-                                        <input type="radio" v-model="pattern.driver.mainStatus[key+3]" :value="item">
-                                        {{Base.getLabel(item)}} +{{DRIVER_MAINSTAT[item]}}{{Base.getUnit(item)}}
-                                    </label>
-                                </dd>
-                            </div>
-                        </dl>
-                        <table>
-                            <caption>サブステータス補正</caption>
-                            <colgroup>
-                                <col class="row-header" />
-                                <col class="driver" span="3" />
-                                <col class="total" />
-                            </colgroup>
-                            <thead>
-                                <tr>
-                                    <th>&nbsp;</th>
-                                    <th>2Set</th>
-                                    <th>Main</th>
-                                    <th>Sub ({{}}/{{Driver.getStackLimit()}})</th>
-                                    <th>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="val,key in Driver.getStatusList()">
-                                    <th scope="col">{{Base.getLabel(val)}}({{Base.getUnit(val)}})</th>
-                                    <td v-if="pattern.driver.original.getSetEffect(val)">{{pattern.driver.original.getSetEffect(val)}}{{Base.getUnit(val, '%')}}</td>
-                                    <td v-else>&nbsp;</td>
-                                    <td v-if="pattern.driver.original.getMainValue(val)">{{pattern.driver.original.getMainValue(val)}}{{Base.getUnit(val, '%')}}</td>
-                                    <td v-else>&nbsp;</td>
-                                    <td v-if="pattern.driver.original.subEffect[val]">
-                                        <span class="nowrap">
-                                            {{DRIVER_SUBSTAT[val]}}{{Base.getUnit(val)}} * 
-                                            <input class="digit2" type="number"
-                                            v-model="pattern.driver.adjustData[val].adjust"
-                                            :min="pattern.driver.adjustData[val].min"
-                                            :max="pattern.driver.adjustData[val].max">
-                                            <button @click="pattern.driver.adjustData[val].adjust --">-</button>
-                                            <button @click="pattern.driver.adjustData[val].adjust ++">+</button>
-                                        </span>
-                                        <input type="range" :data-stat="val"
-                                        v-model="pattern.driver.adjustData[val].adjust"
-                                        :min="pattern.driver.adjustData[val].min"
-                                        :max="pattern.driver.adjustData[val].max">
-                                    </td>
-                                    <td v-else>&nbsp;</td>
-                                    <td>{{}}{{Base.getUnit(val, '%')}}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </fieldset>
-                </section>
+                        </div>
+                    </dl>
+                    <table>
+                        <caption>サブステータス補正</caption>
+                        <colgroup>
+                            <col class="row-header" />
+                            <col class="driver" span="2" />
+                            <col class="total" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>&nbsp;</th>
+                                <!--
+                                <th>2Set</th>
+                                <th>Main</th>
+                                -->
+                                <th>&nbsp;</th>
+                                <th>Sub ({{pattern.driver.stackTotal}}/{{Driver.getStackLimit()}})</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="label of Driver.getStatusList()">
+                                <th scope="col">{{Base.getLabel(label)}}({{Base.getUnit(label)}})</th>
+                                <!--
+                                <td v-if="pattern.driver.original.getSetEffect(label)">{{pattern.driver.original.getSetEffect(label)}}{{Base.getUnit(label, '%')}}</td>
+                                <td v-else>&nbsp;</td>
+                                <td v-if="pattern.driver.original.getMainValue(label)">{{pattern.driver.original.getMainValue(label)}}{{Base.getUnit(label, '%')}}</td>
+                                <td v-else>&nbsp;</td>
+                                -->
+                                <td>
+                                    <label><input type="radio" v-model="pattern.improveTgt" :value="label" @click="console.log(pattern.improveTgt)">設定</label>
+                                </td>
+                                <td v-if="pattern.driver.original.sub[label]">
+                                    <span class="nowrap">
+                                        {{DRIVER_SUBSTAT[label]}}{{Base.getUnit(label)}} * 
+                                        <input class="digit2" type="number"
+                                        v-model="pattern.driver.sub[label].stack"
+                                        :min="pattern.driver.sub[label].min"
+                                        :max="pattern.driver.sub[label].max">
+                                        <button @click="pattern.driver.sub[label].stack --">-</button>
+                                        <button @click="pattern.driver.sub[label].stack ++">+</button>
+                                    </span>
+                                    <input type="range" :data-stat="label"
+                                    v-model="pattern.driver.sub[label].stack"
+                                    :min="pattern.driver.sub[label].min"
+                                    :max="pattern.driver.sub[label].max">
+                                </td>
+                                <td v-else>&nbsp;</td>
+                                <td>{{}}{{Base.getUnit(label, '%')}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </fieldset>
             </section>
             <footer v-show="ready">
                 <menu>
-                    <li><button @click="display.base = !display.base">基本値設定</button></li>
-                    <li></li>
-                    <li><button @click="display.graph = !display.graph">グラフ表示</button></li>
+                    <li><button @click="display.switchScreen('base')">基本値設定</button></li>
+                    <li>
+                        <div>装備パターン</div>
+                        <ol>
+                            <li v-for="i in agentSet.pattern.length">
+                                <button @click="display.switchScreen('pattern', i-1)">#{{i}}</button>
+                            </li>
+                        </ol>
+                    </li>
+                    <li>
+                        <div>ステータス</div>
+                        <button @click="display.statusSwitch()">表示<br>{{display.status}}</button>
+                    </li>
+                    <li>
+                        <div>グラフ</div>
+                        <button @click="display.graphSwitch()">表示<br>{{display.graph}}</button>
+                    </li>
                 </menu>
             </footer>
         </main>
@@ -294,28 +345,39 @@
             const DRIVER_SUBSTAT = Driver.getSubAll()
             const DRIVER_SUBLIST = Driver.getSubLabels()
 
-            const agentSet = ref([])
-            agentSet.value.push(new Calculator(0, 0))
-            var setNum = ref(0)
+            const agentSet = ref(new Calculator(0, 0, undefined, 5))
 
             const outputCalcMode = ref('normal')
 
             const field = document.querySelector('#graph')
             const stageMargin = {top: 30, right: 45, bottom: 45, left: 45}
-            const graph = new Graph(field, stageMargin)
+            console.log(agentSet.value.result)
+            const graph = ref(new Graph(field, stageMargin, agentSet))
 
             createApp({
                 setup() {
                     const display = ref({
-                        graph: true,
+                        graph: false,
+                        graphSwitch() { this.graph = !this.graph },
+                        status: true,
+                        statusSwitch() { this.status = !this.status },
                         base: true,
-                        pattern: true,
+                        pattern: new Array(agentSet.value.pattern.length).fill(false),
+                        switchScreen(tgt, id = 0) {
+                            if(tgt === 'base') {
+                                this.base = true
+                                this.pattern.fill(false)
+                            } else if(tgt === 'pattern') {
+                                this.base = false
+                                this.pattern.fill(false)
+                                this.pattern[id] = true
+                            }
+                        }
                     })
                     const vp = ref({
                         w: window.innerWidth, h: window.innerHeight
                     })
                     const filterState = ref({role: Infinity, rarity: Infinity, element: Infinity, faction: Infinity})
-                    const data = agentSet.value[setNum.value]
 
                     onMounted(() => {
                         console.log('Vue app : mounted')
@@ -323,16 +385,18 @@
                     })
                     onBeforeUpdate(() => {
                         console.log('Vue app : before update')
+                        agentSet.value.getOutputList()
+                        graph.value.refreshData(agentSet.value.result)
                     })
                     onUpdated(() => {
                         console.log('Vue app : updated')
                     })
 
                     return {
-                        vp, ready, display,
+                        vp, ready, display, graph,
                         Base, Agent, Wengine, Driver,
                         WENGINE_ADVLIST, DRIVER_LIST, DRIVER_MAINSTAT, DRIVER_MAINLIST, DRIVER_SUBSTAT,
-                        agentSet, setNum,
+                        agentSet,
                         outputCalcMode, filterState,
                         onMounted, onUpdated, onBeforeUpdate,
                     }

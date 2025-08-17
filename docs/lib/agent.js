@@ -90,7 +90,7 @@ class Agent extends Base {
     get imp() { return this.calcStat('imp') }
     get pen() { return this.calcStat('pen') }
     get penV() { return this.calcStat('penV') }
-    get bDmg() { return this.calcStat('bDmg') }
+    get dBns() { return this.calcStat('dBns') }
     get eReg() { return this.calcStat('eReg') }
 
     baseStatus = {
@@ -104,7 +104,7 @@ class Agent extends Base {
         imp: 93,
         pen: 0,
         penV: 0,
-        bDmg: 0,
+        dBns: 0,
         eReg: 1.2,
     }
     coreEffect = {}

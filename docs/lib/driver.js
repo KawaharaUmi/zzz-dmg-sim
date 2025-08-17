@@ -9,24 +9,24 @@ class Driver extends Base {
         atkV: 79, atkR: 7.5,
         defV: 46, defR: 12,
         cHit: 6, cDmg: 12,
-        bDmg: 7.5,
+        dBns: 7.5,
         aPrf: 23, aBldR: 7.5,
         pen: 6, penV: null,
         impV: null, impR: 4.5,
         eRegV: null, eRegR: 15,
     }
 
-    static getMainAll(lvl) {
-        const result = {}
-        for(const key of Object.keys(this._mainStatusValue)) {
-            if(this._mainStatusValue[key] && !this.checkExclude(key)) result[key] = this.calcMain(key, lvl)
-        }
-        return result
+    static calcMain(label, lvl) {
+        const growthValue = Math.mlp(this._mainStatusValue[label], 0.2)
+        return Math.add(this._mainStatusValue[label], Math.mlp(growthValue, lvl))
     }
 
-    static calcMain(type, lvl) {
-        const growthValue = (this._mainStatusValue[type] * 100) * 0.2
-        return this._mainStatusValue[type] + (growthValue * lvl) / 100
+    static getMainAll(lvl) {
+        const result = {}
+        for(const label of Object.keys(this._mainStatusValue)) {
+            if(this._mainStatusValue[label] && !this.checkExclude(label)) result[label] = this.calcMain(label, lvl)
+        }
+        return result
     }
 
     static getMainStatusList() {
@@ -36,7 +36,7 @@ class Driver extends Base {
             ['atkV'].filter(e => !this.checkExclude(e)),
             ['defV'].filter(e => !this.checkExclude(e)),
             [...commons, 'cHit', 'cDmg', 'aPrf'].filter(e => !this.checkExclude(e)),
-            [...commons, 'bDmg', 'pen'].filter(e => !this.checkExclude(e)),
+            [...commons, 'dBns', 'pen'].filter(e => !this.checkExclude(e)),
             [...commons, 'aBldR', 'impR', 'eRegR'].filter(e => !this.checkExclude(e))
         ]
     }
@@ -46,7 +46,7 @@ class Driver extends Base {
         atkV: 19, atkR: 3,
         defV: 15, defR: 4.8,
         cHit: 2.4, cDmg: 4.8,
-        bDmg: null,
+        dBns: null,
         aPrf: 9, aBldR: null,
         penV: 9, pen: null,
         impV: null, impR: null,
@@ -70,7 +70,7 @@ class Driver extends Base {
     }
 
     static calcSub(type, amount) {
-        const result = (this._subStatusValue[type] * 100) * amount / 100
+        const result = Math.mlp(this._subStatusValue[type], amount)
         return result
     }
 
@@ -94,17 +94,17 @@ class Driver extends Base {
         4: { name: 'フリーダム・ブルース', p: { type: 'aPrf', value: 30 }, s: {} },
         5: { name: 'ホルモン・パンク', p: { type: 'atkR', value: 10 }, s: {} },
         6: { name: 'ソウル・ロック', p: { type: 'defR', value: 16 }, s: {} },
-        7: { name: '炎獄のヘヴィメタル', p: { type: 'bDmg', value: 10 }, s: {} },
-        8: { name: '混沌のヘヴィメタル', p: { type: 'bDmg', value: 10 }, s: {} },
-        9: { name: '霹靂のヘヴィメタル', p: { type: 'bDmg', value: 10 }, s: {} },
-        10: { name: '極地のヘヴィメタル', p: { type: 'bDmg', value: 10 }, s: {} },
-        11: { name: '獣牙のヘヴィメタル', p: { type: 'bDmg', value: 10 }, s: {} },
+        7: { name: '炎獄のヘヴィメタル', p: { type: 'dBns', value: 10 }, s: {} },
+        8: { name: '混沌のヘヴィメタル', p: { type: 'dBns', value: 10 }, s: {} },
+        9: { name: '霹靂のヘヴィメタル', p: { type: 'dBns', value: 10 }, s: {} },
+        10: { name: '極地のヘヴィメタル', p: { type: 'dBns', value: 10 }, s: {} },
+        11: { name: '獣牙のヘヴィメタル', p: { type: 'dBns', value: 10 }, s: {} },
         12: { name: 'プロト・パンク', p: { type: 'sldR', value: 15 }, s: {} },
         13: { name: 'ケイオス・ジャズ', p: { type: 'aPrf', value: 30 }, s: {} },
         14: { name: '静寂のアストラ', p: { type: 'atkR', value: 10 }, s: {} },
         15: { name: '折枝の刀歌', p: { type: 'cDmg', value: 16 }, s: {} },
         16: { name: '「パエトーン」の歌', p: { type: 'aBldR', value: 8 }, s: {} },
-        17: { name: 'シャドウハーモニー', p: { type: 'bDmg', value: 15 }, s: {} },
+        17: { name: 'シャドウハーモニー', p: { type: 'dBns', value: 15 }, s: {} },
         18: { name: '雲嶽は我に似たり', p: { type: 'hpR', value: 10 }, s: {} },
         19: { name: '大山を統べる者', p: { type: 'brkR', value: 6 }, s: {} },
     }
@@ -138,30 +138,35 @@ class Driver extends Base {
         }
     }
 
-
     combination = []
-    mainStatus = ["hpV", "atkV", "defV", "cHit", "bDmg", "atkR"]
-    subEffect = {}
-    stackTotal
+    main = ["hpV", "atkV", "defV", "cHit", "dBns", "atkR"]
+    sub = {}
+    get stackTotal() {
+        let count = 0
+        for(const label in this.sub) {
+            count += Number(this.sub[label].stack)
+        }
+        return count
+    }
+    get stackRemaining() {
+        return Driver.getStackLimit() - this.stackTotal
+    }
+
     buffs = []
 
     constructor(ids = [1, 15, 15]) {
         super()
         for(const label of Driver.getSubLabels()) {
-            const target = this.subEffect[label] = {
+            const target = this.sub[label] = {
                 _stack: 0,
             }
             Object.defineProperty(target, 'stack', {
                 get: () => target._stack,
                 set: (val) => {
-                    if(val < target.min) {
-                        target._stack = target.min
-                    } else if(val > target.max) {
-                        target._stack = target.max
-                    } else {
-                        target._stack = val
-                    }
-                    if(this.getStackTotal() > Driver.getStackLimit()) target._stack = val - (this.getStackTotal() - Driver.getStackLimit())
+                    target._stack = Number(val)
+                    if(target._stack < target.min) target._stack = target.min
+                    if(target._stack > target.max) target._stack = target.max
+                    if(this.stackTotal > Driver.getStackLimit()) target._stack -= (this.stackTotal - Driver.getStackLimit())
                 }
             })
             Object.defineProperty(target, 'min', {
@@ -172,7 +177,7 @@ class Driver extends Base {
             })
             Object.defineProperty(target, 'max', {
                 get: () => {
-                    const result = 6 * (6 - this.mainStatus.reduce((a,c) => (c === label) ? a + 1 : a, 0))
+                    const result = 6 * (6 - this.main.reduce((a,c) => (c === label) ? a + 1 : a, 0))
                     if(target.stack > result) target.stack = result
                     return result
                 },
@@ -185,7 +190,6 @@ class Driver extends Base {
         for(const id of this.combination) {
             if(typeof id !== 'number') throw new Error('Inviled arguments: number型を列挙したArray型が必要です。')
         }
-        console.log('Driver', this)
     }
 
     getEffectValue(label) {
@@ -194,12 +198,12 @@ class Driver extends Base {
         if(setEffect) total += setEffect
         const mainValue = this.getMainValue(label)
         if(mainValue) total += mainValue
-        if(this.subEffect[label]) total += Driver.calcSub(label, this.subEffect[label].stack)
+        if(this.sub[label]) total = Math.add(total, Driver.calcSub(label, this.sub[label].stack))
         return total
     }
 
     getAllEffects() {
-        const result = { setEffect: {}, mainEffect: {}, subEffect: this.subEffect }
+        const result = { setEffect: {}, mainEffect: {}, sub: this.sub }
         for(const label of Driver.getStatusList()) {
             const setEffect = this.getSetEffect(label)
             if(setEffect) result.setEffect[label] = setEffect
@@ -210,12 +214,12 @@ class Driver extends Base {
     }
 
     getSubEffectStack(label) {
-        return { stack: this.subEffect[label].stack, max: this.subEffect[label].max }
+        return { stack: this.sub[label].stack, max: this.sub[label].max }
     }
 
     getSubEffectAll() {
         const result = {}
-        for(const label in this.subEffect) {
+        for(const label in this.sub) {
             const subStack = this.getSubEffectStack(label)
             result[label] = {
                 value: Driver.calcSub(label, subStack.stack),
@@ -223,14 +227,6 @@ class Driver extends Base {
             }
         }
         return result
-    }
-
-    getStackTotal() {
-        let count = 0
-        for(const label in this.subEffect) {
-            count += Number(this.subEffect[label].stack)
-        }
-        return count
     }
     
     getSetEffect(type) {
@@ -243,6 +239,6 @@ class Driver extends Base {
     }
 
     getMainValue(label) {
-        return Driver.calcMain(label, 15) * this.mainStatus.reduce((a,c) => c === label ? a + 1: a, 0)
+        return Driver.calcMain(label, 15) * this.main.reduce((a,c) => c === label ? a + 1: a, 0)
     }
 }

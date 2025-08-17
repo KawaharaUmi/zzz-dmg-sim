@@ -53,7 +53,7 @@ class Base {
     static _statusSet = {
         hp: 'HP', atk: '攻撃力', def: '防御力',
         cHit: '会心率', cDmg: '会心ダメ',
-        bDmg: 'ボーナス',
+        dBns: 'ボーナス',
         aPrf: '異常マスタリー', aBld: '異常掌握',
         penV: '貫通値', pen: '貫通率',
         imp: '衝撃力',
@@ -84,7 +84,7 @@ class Base {
             result = this._unit[lastChar]
         } else {
             switch(key) {
-                case 'bDmg': case 'cHit': case 'cDmg': case 'pen':
+                case 'dBns': case 'cHit': case 'cDmg': case 'pen':
                     result = this._unit.R
                     break
                 default :

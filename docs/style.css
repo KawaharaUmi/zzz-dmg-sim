@@ -6,6 +6,17 @@
 
 svg text {
     font-size: 8pt;
+    fill: #ccc;
+}
+
+svg line.grid {
+    stroke: #333;
+    stroke-width: 1px;
+}
+
+svg line.dashed {
+    stroke: #222;
+    stroke-dasharray: 2,2;
 }
 
 * {
@@ -35,7 +46,6 @@ main {
     margin: 0 auto;
     width: 100dvw;
     max-width: var(--stage-width);
-    overflow: hidden;
 }
 
 main > section > section {
@@ -53,12 +63,32 @@ main > section > section > * {
 
 main > footer {
     position: fixed;
+    flex-wrap: nowrap;
     bottom: 0;
     left: 0;
     width: 100dvw;
-    margin-top: 10px;
+    height: 90px;
+    overflow-x: scroll;
     background: #000e;
     padding: 10px calc((100dvw - var(--stage-width) - 10px) / 2);
+}
+
+menu {
+    display: flex;
+    justify-content: space-between;
+    border-left: solid 1px #ccc;
+}
+
+menu > li {
+    margin: 0;
+    border: solid 1px #333;
+    border-right: solid 1px #ccc;
+    padding: 5px;
+}
+
+menu div {
+    margin: 0;
+    font-size: 7pt;
 }
 
 @media screen and (max-width: 999px) {
@@ -222,6 +252,10 @@ th, td {
     padding: 3px 6px;
 }
 
+th {
+    font-size: 75%;
+}
+
 td {
     text-align: right;
 }
@@ -242,6 +276,26 @@ canvas {
     margin: 0;
     background: #000e;
     padding: 5px;
+}
+
+.agent-status td {
+    border-bottom: none;
+}
+
+.agent-status tr.base td {
+    padding-top: 0;
+    padding-bottom: 0;
+    font-size: 75%;
+}
+
+.agent-status tr.add td {
+    padding-top: 0;
+    font-size: 75%;
+    color: #0c3;
+}
+
+.agent-status tr.add td::before {
+    content: '+';
 }
 
 .value {
